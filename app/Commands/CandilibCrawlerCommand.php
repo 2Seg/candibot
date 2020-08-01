@@ -4,6 +4,7 @@ namespace App\Commands;
 
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
+use App\Notifiers\TelegramNotifier;
 use Illuminate\Support\Facades\Http;
 use LaravelZero\Framework\Commands\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -71,6 +72,19 @@ class CandilibCrawlerCommand extends Command
     protected $postalCodes;
 
     /**
+     *
+     * @var TelegramNotifier
+     */
+    protected $telegramNotifier;
+
+    public function __construct(TelegramNotifier $telegramNotifier)
+    {
+        parent::__construct();
+
+        $this->telegramNotifier = $telegramNotifier;
+    }
+
+    /**
      * {@inheritDoc}
      */
     protected function initialize(InputInterface $input, OutputInterface $output)
@@ -122,15 +136,15 @@ class CandilibCrawlerCommand extends Command
         $start = microtime(1);
         $this->line('');
         $authSuccessful = $this->task('Checking authentication', function () {
-            $request = Http::get($this->baseUrl . '/auth/candidat/verify-token', ['token' => $this->token]);
+            $response = Http::get($this->baseUrl . '/auth/candidat/verify-token', ['token' => $this->token]);
 
-            return $request->successful()
-                && $request->object()->auth;
+            return $response->successful()
+                && $response->object()->auth;
         });
         $this->warn('Took ' . round((microtime(1) - $start), 2) . 's');
 
         if (! $authSuccessful) {
-            $this->error("Authentification failed, please verify your token.");
+            $this->error('Authentification failed, please verify your token.');
             exit;
         }
     }
@@ -147,10 +161,10 @@ class CandilibCrawlerCommand extends Command
         $start = microtime(1);
         $this->line('');
         $this->task("Fetching $count", function () use (&$results) {
-            $request = Http::withToken($this->token)->get($this->baseUrl . '/candidat/departements');
-            $results = collect($request->object()->geoDepartementsInfos);
+            $response = Http::withToken($this->token)->get($this->baseUrl . '/candidat/departements');
+            $results = collect($response->object()->geoDepartementsInfos);
 
-            return $request->successful();
+            return $response->successful();
         });
         $this->warn('Took ' . round((microtime(1) - $start), 2) . 's');
 
@@ -158,7 +172,7 @@ class CandilibCrawlerCommand extends Command
 
         return $results->filter(function ($department) {
             return in_array($department->geoDepartement, $this->postalCodes)
-                && $department->count == 0;
+                && $department->count > 0;
         });
     }
 
@@ -172,11 +186,16 @@ class CandilibCrawlerCommand extends Command
             })->toArray()
         );
 
-        $this->notify(
-            'Availability found!',
-            implode('', $availabilities->map(function ($department) {
-                return "$department->geoDepartement: $department->count place(s) \r\n";
-            })->toArray())
+        $response = $this->telegramNotifier->sendMessage(
+            "<b>🚨New availabilities found!🚨</b>\n\n" .
+            implode("\n", $availabilities->map(function ($department) {
+                return "$department->geoDepartement ➡️ $department->count";
+            })->toArray()) .
+            "\n\n<a href='https://beta.interieur.gouv.fr/candilib/candidat/home'>Click here to SHOTGUN 💥</a>"
         );
+
+        if (! $response->successful()) {
+            $this->error('Couldn\'t send Telegram.');
+        }
     }
 }
