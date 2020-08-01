@@ -5,7 +5,6 @@ namespace App\Commands;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Console\Scheduling\Schedule;
 use LaravelZero\Framework\Commands\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -18,9 +17,9 @@ class CandilibCrawlerCommand extends Command
      * @var string
      */
     protected $signature = 'candilib:crawl
-                                {--limit=30}
-                                {--refreshRate=5}
-                                {--postalCodes=95,94,93,92,91,78,77,69,38}';
+                            {--limit=30}
+                            {--refreshRate=5}
+                            {--postalCodes=95,94,93,92,91,78,77,69,38}';
 
     /**
      * The description of the command.
@@ -92,32 +91,22 @@ class CandilibCrawlerCommand extends Command
     public function handle()
     {
         $this->info('Let\'s get you up and driving #CandilibIsWater...');
+
         $this->line('');
         $this->warn('Started search at:   ' . $this->startAt->clone()->toDateTimeString());
         $this->warn('Search will stop at: ' . $this->endAt->clone()->toDateTimeString());
-        $this->line('');
 
         $this->checkAuth();
 
         $count = 1;
 
         do {
-            if ($this->getOutput()->getVerbosity() >= OutputInterface::VERBOSITY_VERBOSE){
-                $this->line(".. Fetching ($count) ..");
+            $availabilities = $this->getAvailabilities($count);
+
+            if ($availabilities->count() > 0) {
+                $this->notifyAvailabilities($availabilities);
             }
 
-            if (($availabilities = $this->getAvailabilities())->count() > 0) {
-                $this->info('Availability found!');
-                $this->notify(
-                    '⚠️ TODO: SHOTGUN ⚠️',
-                    implode('', $availabilities->map(function ($department) {
-                        return "$department->geoDepartement: $department->count place(s) \r\n";
-                    })->toArray())
-                );
-                exit;
-            }
-
-            $count++;
             sleep($this->refreshRate);
         } while (now()->isBefore($this->endAt));
 
@@ -130,13 +119,15 @@ class CandilibCrawlerCommand extends Command
      */
     protected function checkAuth(): void
     {
+        $start = microtime(1);
+        $this->line('');
         $authSuccessful = $this->task('Checking authentication', function () {
             $request = Http::get($this->baseUrl . '/auth/candidat/verify-token', ['token' => $this->token]);
 
             return $request->successful()
                 && $request->object()->auth;
         });
-        $this->line('');
+        $this->warn('Took ' . round((microtime(1) - $start), 2) . 's');
 
         if (! $authSuccessful) {
             $this->error("Authentification failed, please verify your token.");
@@ -149,32 +140,43 @@ class CandilibCrawlerCommand extends Command
      *
      * @return array
      */
-    protected function getAvailabilities(): Collection
+    protected function getAvailabilities(int &$count): Collection
     {
-        $request = Http::withToken($this->token)
-            ->get($this->baseUrl . '/candidat/departements');
+        $results = collect();
 
-        if (! $request->successful()) {
-            $this->error('Impossible to fetch availabilities.');
-            exit;
-        }
+        $start = microtime(1);
+        $this->line('');
+        $this->task("Fetching $count", function () use (&$results) {
+            $request = Http::withToken($this->token)->get($this->baseUrl . '/candidat/departements');
+            $results = collect($request->object()->geoDepartementsInfos);
 
-        $results = collect($request->object()->geoDepartementsInfos);
+            return $request->successful();
+        });
+        $this->warn('Took ' . round((microtime(1) - $start), 2) . 's');
+
+        $count++;
 
         return $results->filter(function ($department) {
             return in_array($department->geoDepartement, $this->postalCodes)
-                && $department->count > 0;
+                && $department->count == 0;
         });
     }
 
-    /**
-     * Define the command's schedule.
-     *
-     * @param  \Illuminate\Console\Scheduling\Schedule $schedule
-     * @return void
-     */
-    public function schedule(Schedule $schedule): void
+    protected function notifyAvailabilities(Collection $availabilities): void
     {
-        // $schedule->command(static::class)->everyMinute();
+        $this->info('Availability found!');
+        $this->table(
+            ['Deparment', 'Places'],
+            $availabilities->map(function ($department) {
+                return [$department->geoDepartement, $department->count];
+            })->toArray()
+        );
+
+        $this->notify(
+            'Availability found!',
+            implode('', $availabilities->map(function ($department) {
+                return "$department->geoDepartement: $department->count place(s) \r\n";
+            })->toArray())
+        );
     }
 }
