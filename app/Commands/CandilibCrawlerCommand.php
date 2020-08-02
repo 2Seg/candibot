@@ -119,6 +119,7 @@ class CandilibCrawlerCommand extends Command
 
             if ($availabilities->count() > 0) {
                 $this->notifyAvailabilities($availabilities);
+                sleep(20);
             }
 
             $this->sleep();
