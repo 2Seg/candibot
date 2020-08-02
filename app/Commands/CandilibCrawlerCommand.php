@@ -121,7 +121,7 @@ class CandilibCrawlerCommand extends Command
                 $this->notifyAvailabilities($availabilities);
             }
 
-            sleep($this->refreshRate);
+            $this->sleep();
         } while (now()->isBefore($this->endAt));
 
         $this->line('');
@@ -176,6 +176,11 @@ class CandilibCrawlerCommand extends Command
         });
     }
 
+    /**
+     * Notify availabilities
+     *
+     * @param  Collection $availabilities
+     */
     protected function notifyAvailabilities(Collection $availabilities): void
     {
         $this->info('Availability found!');
@@ -197,5 +202,16 @@ class CandilibCrawlerCommand extends Command
         if (! $response->successful()) {
             $this->error('Couldn\'t send Telegram.');
         }
+    }
+
+    /**
+     * Have a good night
+     */
+    protected function sleep(): void
+    {
+        sleep(
+            $this->refreshRate
+            + mt_rand(- (1 / $this->refreshRate * 100), (1 / $this->refreshRate * 100)) / ($this->refreshRate * 100)
+        );
     }
 }
