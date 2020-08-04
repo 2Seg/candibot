@@ -195,9 +195,9 @@ class CandilibCrawlerCommand extends Command
         $response = $this->telegramNotifier->sendMessage(
             "<b>🚨New availabilities found!🚨</b>\n\n" .
             implode("\n", $availabilities->map(function ($department) {
-                return "$department->geoDepartement ➡️ $department->count";
+                return "$department->geoDepartement ➡️ <a href='$this->baseUrl/candilib/candidat/$department->geoDepartement/selection/selection-centre'>$department->count</a>";
             })->toArray()) .
-            "\n\n<a href='https://beta.interieur.gouv.fr/candilib/candidat/home'>Click here to SHOTGUN 💥</a>"
+            "\n\n<a href='$this->baseUrl/candilib/candidat/home'>Click here to SHOTGUN 💥</a>"
         );
 
         if (! $response->successful()) {
