@@ -183,6 +183,11 @@ class CandilibCrawlerCommand extends Command
                 'X-USER-ID'   => $this->userId,
             ])->get($this->baseUrl . '/candidat/departements');
 
+            if (! $response->successful()) {
+                $this->notifyFailure();
+                exit;
+            }
+
             $results = collect($response->object()->geoDepartementsInfos);
 
             return $response->successful();
@@ -213,11 +218,32 @@ class CandilibCrawlerCommand extends Command
         );
 
         $response = $this->telegramNotifier->sendMessage(
-            "<b>🚨New availabilities found!🚨</b>\n\n" .
-            implode("\n", $availabilities->map(function ($department) {
+            "<b>🚨New availabilities found!🚨</b>"
+            . PHP_EOL
+            . PHP_EOL
+            . $availabilities->map(function ($department) {
                 return "$department->geoDepartement ➡️ <a href='$this->baseUrl/candilib/candidat/$department->geoDepartement/selection/selection-centre'>$department->count</a>";
-            })->toArray()) .
-            "\n\n<a href='$this->baseUrl/candilib/candidat/home'>Click here to SHOTGUN 💥</a>"
+            })->join(PHP_EOL)
+            . PHP_EOL
+            . PHP_EOL
+            . "\n\n<a href='$this->baseUrl/candilib/candidat/home'>Click here to SHOTGUN 💥</a>"
+        );
+
+        if (! $response->successful()) {
+            $this->error('Couldn\'t send Telegram.');
+        }
+    }
+
+    /**
+     * Notify failure
+     */
+    protected function notifyFailure(): void
+    {
+        $response = $this->telegramNotifier->sendMessage(
+            "<b>⚠️Command failure⚠️</b>"
+            . PHP_EOL
+            . PHP_EOL
+            . "You should start it again..."
         );
 
         if (! $response->successful()) {
