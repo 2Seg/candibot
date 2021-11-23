@@ -1,0 +1,20 @@
+version: '3.7'
+
+networks:
+  candibot:
+    name: candibot
+
+services:
+  candibot_php:
+    container_name: candibot_php
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    volumes:
+      - ./:/var/www/candibot
+    ports:
+      - 8081:80
+    networks:
+      - candibot
