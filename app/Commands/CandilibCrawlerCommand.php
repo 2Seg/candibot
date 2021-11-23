@@ -44,6 +44,20 @@ class CandilibCrawlerCommand extends Command
     protected $token;
 
     /**
+     * Candilib client id
+     *
+     * @var string
+     */
+    protected $clientId;
+
+    /**
+     * Candilib user id
+     *
+     * @var string
+     */
+    protected $userId;
+
+    /**
      * Launch time of the command
      *
      * @var Carbon
@@ -89,8 +103,10 @@ class CandilibCrawlerCommand extends Command
      */
     protected function initialize(InputInterface $input, OutputInterface $output)
     {
-        $this->baseUrl     = env('CANDILIB_BASE_URL');
-        $this->token       = env('CANDILIB_TOKEN');
+        $this->baseUrl     = config('candibot.base_url');
+        $this->token       = config('candibot.token');
+        $this->clientId    = config('candibot.headers.client_id');
+        $this->userId      = config('candibot.headers.user_id');
         $this->startAt     = now();
         $this->endAt       = $this->startAt->clone()->addMinutes($input->getOption('limit'));
         $this->refreshRate = $input->getOption('refreshRate');
@@ -162,7 +178,11 @@ class CandilibCrawlerCommand extends Command
         $start = microtime(1);
         $this->line('');
         $this->task("Fetching $count", function () use (&$results) {
-            $response = Http::withToken($this->token)->get($this->baseUrl . '/candidat/departements');
+            $response = Http::withToken($this->token)->withHeaders([
+                'X-CLIENT-ID' => $this->clientId,
+                'X-USER-ID'   => $this->userId,
+            ])->get($this->baseUrl . '/candidat/departements');
+
             $results = collect($response->object()->geoDepartementsInfos);
 
             return $response->successful();
