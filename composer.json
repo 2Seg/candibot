@@ -21,7 +21,7 @@
         "illuminate/http": "^9.0",
         "illuminate/notifications": "^9.0",
         "intonate/tinker-zero": "^1.1",
-        "laminas/laminas-text": "^2.7",
+        "laminas/laminas-text": "^2.9",
         "laravel-notification-channels/telegram": "^2.0",
         "laravel-zero/framework": "^9.0"
     },
