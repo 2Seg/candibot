@@ -17,7 +17,7 @@ class CandilibCrawlerCommand extends Command
      *
      * @var string
      */
-    protected $signature = 'candilib:crawl
+    protected $signature = 'candilib:crawl {token?}
                             {--limit=30}
                             {--refreshRate=5}
                             {--postalCodes=95,94,93,92,91,78,77,69,38}';
@@ -104,7 +104,7 @@ class CandilibCrawlerCommand extends Command
     protected function initialize(InputInterface $input, OutputInterface $output)
     {
         $this->baseUrl     = config('candibot.base_url');
-        $this->token       = config('candibot.token');
+        $this->token       = $input->getArgument('token') ?? config('candibot.token');
         $this->clientId    = config('candibot.headers.client_id');
         $this->userId      = config('candibot.headers.user_id');
         $this->startAt     = now();
